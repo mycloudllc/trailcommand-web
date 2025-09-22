@@ -280,7 +280,7 @@ const TrailCommandInterface = () => {
   // Load config on component mount
   useEffect(() => {
     loadAppConfig();
-  }, [loadAppConfig]);
+  }, []); // Remove loadAppConfig dependency to prevent infinite loop
 
   // Validate existing token and restore user session on component mount
   useEffect(() => {
@@ -1696,7 +1696,7 @@ const TrailCommandInterface = () => {
     } finally {
       healthCheckInProgress.current = false;
     }
-  }, [token, socketConnection, connectSocket, isConnectingSocket, serverConfig]);
+  }, [token, socketConnection, isConnectingSocket, serverConfig]); // Removed connectSocket to prevent infinite loop
 
   // Settings handlers
   const handleUpdateProfile = async (e) => {
@@ -1941,7 +1941,7 @@ const TrailCommandInterface = () => {
     if (token && isConnected) {
       setTimeout(() => connectSocket(), 100);
     }
-  }, [serverConfig.host, serverConfig.port, token, isConnected, connectSocket]);
+  }, [serverConfig.host, serverConfig.port, token, isConnected]); // Removed connectSocket to prevent infinite loop
 
   // Load sensors and controls when widget settings modal opens or device changes
   useEffect(() => {
