@@ -141,7 +141,22 @@ const TrailCommandInterface = () => {
     return storedToken || '';
   });
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [registrationForm, setRegistrationForm] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: ''
+  });
   const [showLogin, setShowLogin] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [passwordValidation, setPasswordValidation] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false
+  });
   
   // App state
   const [devices, setDevices] = useState([]);
@@ -345,6 +360,27 @@ const TrailCommandInterface = () => {
         throw new Error('Login failed');
       } catch (error) {
         console.error('Login error:', error);
+        throw error;
+      }
+    },
+
+    async register(userData) {
+      try {
+        const response = await fetch(`${this.baseUrl()}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userData)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return data;
+        }
+
+        const errorData = await response.json().catch(() => ({ message: 'Registration failed' }));
+        throw new Error(errorData.message || 'Registration failed');
+      } catch (error) {
+        console.error('Registration error:', error);
         throw error;
       }
     },
@@ -1131,6 +1167,29 @@ const TrailCommandInterface = () => {
     };
   }, [selectedDevice, token, pollWidgetData]);
 
+  // Password validation function
+  const validatePassword = (password) => {
+    const validation = {
+      length: password.length >= 12,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    };
+    setPasswordValidation(validation);
+    return Object.values(validation).every(Boolean);
+  };
+
+  // Check password strength
+  const getPasswordStrength = (password) => {
+    const checks = Object.values(passwordValidation).filter(Boolean).length;
+    if (checks === 0) return { strength: 'none', color: 'gray', text: '' };
+    if (checks <= 2) return { strength: 'weak', color: 'red', text: 'Weak' };
+    if (checks <= 3) return { strength: 'fair', color: 'orange', text: 'Fair' };
+    if (checks <= 4) return { strength: 'good', color: 'yellow', text: 'Good' };
+    return { strength: 'strong', color: 'green', text: 'Strong' };
+  };
+
   // Login handler
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -1145,6 +1204,62 @@ const TrailCommandInterface = () => {
       }
     } catch (error) {
       alert('Login failed: ' + error.message);
+    }
+  };
+
+  // Registration handler
+  const handleRegistration = async (e) => {
+    e.preventDefault();
+
+    // Validation
+    if (registrationForm.password !== registrationForm.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+
+    if (!validatePassword(registrationForm.password)) {
+      alert('Password does not meet security requirements. Please check the requirements below.');
+      return;
+    }
+
+    try {
+      const userData = {
+        email: registrationForm.email,
+        password: registrationForm.password,
+        firstName: registrationForm.firstName,
+        lastName: registrationForm.lastName
+      };
+
+      const result = await TrailCommandAPI.register(userData);
+
+      if (result && result.token) {
+        // Auto-login after successful registration
+        setToken(result.token);
+        setUser(result.user);
+        CookieHelper.set('trailcommand-token', result.token, 7);
+        setShowLogin(false);
+        setRegistrationForm({
+          email: '',
+          password: '',
+          confirmPassword: '',
+          firstName: '',
+          lastName: ''
+        });
+        alert('Registration successful! Welcome to TrailCommand.');
+      } else {
+        // Registration successful but no auto-login
+        alert('Registration successful! Please log in with your credentials.');
+        setIsRegistering(false);
+        setRegistrationForm({
+          email: '',
+          password: '',
+          confirmPassword: '',
+          firstName: '',
+          lastName: ''
+        });
+      }
+    } catch (error) {
+      alert('Registration failed: ' + error.message);
     }
   };
 
@@ -2535,43 +2650,206 @@ const TrailCommandInterface = () => {
             <p className="text-gray-600">IoT Dashboard</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={loginForm.email}
-                onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder="admin@trailcommand.local"
-                required
-              />
-            </div>
+          {!isRegistering ? (
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="admin@trailcommand.local"
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder="••••••••"
-                required
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
 
+              <button
+                type="submit"
+                className="w-full py-2 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-md hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+              >
+                <LogIn className="w-4 h-4 inline mr-2" />
+                Sign In
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegistration} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={registrationForm.firstName}
+                    onChange={(e) => setRegistrationForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="John"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={registrationForm.lastName}
+                    onChange={(e) => setRegistrationForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Doe"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={registrationForm.email}
+                  onChange={(e) => setRegistrationForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="john@example.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={registrationForm.password}
+                  onChange={(e) => {
+                    const newPassword = e.target.value;
+                    setRegistrationForm(prev => ({ ...prev, password: newPassword }));
+                    validatePassword(newPassword);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="••••••••"
+                  minLength="12"
+                  required
+                />
+
+                {registrationForm.password && (
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-700">Password Strength:</span>
+                      <span className={`text-xs font-bold text-${getPasswordStrength(registrationForm.password).color}-600`}>
+                        {getPasswordStrength(registrationForm.password).text}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <div className={`flex items-center ${passwordValidation.length ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className="mr-2">{passwordValidation.length ? '✓' : '✗'}</span>
+                        At least 12 characters
+                      </div>
+                      <div className={`flex items-center ${passwordValidation.uppercase ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className="mr-2">{passwordValidation.uppercase ? '✓' : '✗'}</span>
+                        One uppercase letter (A-Z)
+                      </div>
+                      <div className={`flex items-center ${passwordValidation.lowercase ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className="mr-2">{passwordValidation.lowercase ? '✓' : '✗'}</span>
+                        One lowercase letter (a-z)
+                      </div>
+                      <div className={`flex items-center ${passwordValidation.number ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className="mr-2">{passwordValidation.number ? '✓' : '✗'}</span>
+                        One number (0-9)
+                      </div>
+                      <div className={`flex items-center ${passwordValidation.special ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className="mr-2">{passwordValidation.special ? '✓' : '✗'}</span>
+                        One special character (!@#$%^&*)
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  value={registrationForm.confirmPassword}
+                  onChange={(e) => setRegistrationForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  className={`w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                    registrationForm.confirmPassword && registrationForm.password !== registrationForm.confirmPassword
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-300'
+                  }`}
+                  placeholder="••••••••"
+                  minLength="12"
+                  required
+                />
+                {registrationForm.confirmPassword && registrationForm.password !== registrationForm.confirmPassword && (
+                  <div className="mt-1 text-xs text-red-600 flex items-center">
+                    <span className="mr-2">✗</span>
+                    Passwords do not match
+                  </div>
+                )}
+                {registrationForm.confirmPassword && registrationForm.password === registrationForm.confirmPassword && registrationForm.confirmPassword.length > 0 && (
+                  <div className="mt-1 text-xs text-green-600 flex items-center">
+                    <span className="mr-2">✓</span>
+                    Passwords match
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={
+                  !validatePassword(registrationForm.password) ||
+                  registrationForm.password !== registrationForm.confirmPassword ||
+                  !registrationForm.firstName ||
+                  !registrationForm.lastName ||
+                  !registrationForm.email
+                }
+                className={`w-full py-2 px-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${
+                  !validatePassword(registrationForm.password) ||
+                  registrationForm.password !== registrationForm.confirmPassword ||
+                  !registrationForm.firstName ||
+                  !registrationForm.lastName ||
+                  !registrationForm.email
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 focus:ring-green-500'
+                }`}
+              >
+                <LogIn className="w-4 h-4 inline mr-2" />
+                Create Account
+              </button>
+            </form>
+          )}
+
+          <div className="mt-6 text-center">
             <button
-              type="submit"
-              className="w-full py-2 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-md hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+              onClick={() => setIsRegistering(!isRegistering)}
+              className="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200"
             >
-              <LogIn className="w-4 h-4 inline mr-2" />
-              Sign In
+              {isRegistering ? 'Already have an account? Sign in' : 'Need an account? Register'}
             </button>
-          </form>
+          </div>
 
           {shouldShowServerConfig() && (
             <div className="mt-6 text-center">
