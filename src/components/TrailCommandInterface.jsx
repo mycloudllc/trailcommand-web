@@ -1154,7 +1154,7 @@ const TrailCommandInterface = () => {
   useEffect(() => {
     if (!selectedDevice || !token) return;
 
-    const sensorDataInterval = appConfig?.app?.polling?.sensorDataInterval || 5000;
+    const sensorDataInterval = appConfig?.app?.polling?.sensorDataInterval || 15000; // Increased from 5s to 15s
     console.log(`Starting ${sensorDataInterval}ms polling for device:`, selectedDevice.device_id);
     const pollInterval = setInterval(pollWidgetData, sensorDataInterval);
 
@@ -1165,7 +1165,7 @@ const TrailCommandInterface = () => {
       console.log('Stopping polling for device:', selectedDevice.device_id);
       clearInterval(pollInterval);
     };
-  }, [selectedDevice, token, pollWidgetData]);
+  }, [selectedDevice, token]); // Removed pollWidgetData to prevent infinite loop
 
   // Password validation function
   const validatePassword = (password) => {
@@ -1896,7 +1896,7 @@ const TrailCommandInterface = () => {
 
   useEffect(() => {
     checkConnection();
-    const connectionCheckInterval = appConfig?.app?.polling?.connectionCheckInterval || 60000;
+    const connectionCheckInterval = appConfig?.app?.polling?.connectionCheckInterval || 120000; // Increased from 60s to 120s
     const interval = setInterval(checkConnection, connectionCheckInterval);
 
     return () => {
@@ -1913,7 +1913,7 @@ const TrailCommandInterface = () => {
       setSocketConnection(null);
       setIsConnectingSocket(false);
     };
-  }, [checkConnection]);
+  }, [token]); // Changed from [checkConnection] to [token] to prevent infinite loop
 
   // Reconnect when server config changes
   useEffect(() => {
