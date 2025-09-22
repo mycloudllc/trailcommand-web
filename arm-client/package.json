@@ -1,0 +1,24 @@
+{
+  "name": "trailcommand-arm-client",
+  "version": "1.0.0",
+  "description": "TrailCommand Socket.IO client for ARM Linux devices",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "install-arm": "npm install --target_arch=arm --target_platform=linux",
+    "install-arm64": "npm install --target_arch=arm64 --target_platform=linux"
+  },
+  "keywords": ["iot", "trailcommand", "socket.io", "arm", "linux"],
+  "author": "TrailCommand",
+  "license": "MIT",
+  "dependencies": {
+    "socket.io-client": "^4.7.2",
+    "uuid": "^9.0.0",
+    "axios": "^1.6.0",
+    "fs-extra": "^11.1.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

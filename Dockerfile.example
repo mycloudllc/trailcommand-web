@@ -1,0 +1,120 @@
+# TrailCommand Pro - Multi-stage Docker Build
+# Example Dockerfile showing configuration management
+
+# Build stage
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy source code
+COPY . .
+
+# Set build-time environment variables
+ARG REACT_APP_API_HOST=localhost
+ARG REACT_APP_API_PORT=3001
+ARG REACT_APP_API_PROTOCOL=http
+ARG REACT_APP_NAME="TrailCommand Pro"
+ARG REACT_APP_VERSION=1.0.0
+ARG REACT_APP_DEFAULT_THEME=light
+ARG REACT_APP_SHOW_SERVER_CONFIG=false
+
+# Generate configuration from environment variables
+RUN node scripts/generate-config.js
+
+# Build the application
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+
+# Copy built app
+COPY --from=builder /app/build /usr/share/nginx/html
+
+# Copy nginx configuration (if you have custom nginx config)
+# COPY nginx.conf /etc/nginx/nginx.conf
+
+# Create startup script that can override config at runtime
+COPY <<EOF /docker-entrypoint.d/10-generate-config.sh
+#!/bin/sh
+echo "Generating runtime configuration..."
+
+# Generate config.json from environment variables at container startup
+cd /usr/share/nginx/html
+
+# Create config from environment variables
+cat > config.json << EOL
+{
+  "api": {
+    "host": "\${API_HOST:-localhost}",
+    "port": "\${API_PORT:-3001}",
+    "protocol": "\${API_PROTOCOL:-http}",
+    "endpoints": {
+      "auth": "/auth",
+      "devices": "/devices",
+      "sensors": "/sensors",
+      "widgets": "/widgets",
+      "health": "/health"
+    }
+  },
+  "app": {
+    "name": "\${APP_NAME:-TrailCommand Pro}",
+    "version": "\${APP_VERSION:-1.0.0}",
+    "polling": {
+      "sensorDataInterval": \${SENSOR_INTERVAL:-5000},
+      "connectionCheckInterval": \${CONNECTION_CHECK_INTERVAL:-60000}
+    },
+    "socket": {
+      "transports": ["polling", "websocket"],
+      "timeout": \${SOCKET_TIMEOUT:-20000},
+      "reconnectionAttempts": \${SOCKET_RECONNECT_ATTEMPTS:-3},
+      "reconnectionDelay": \${SOCKET_RECONNECT_DELAY:-1000},
+      "forceNew": true
+    }
+  },
+  "ui": {
+    "defaultTheme": "\${DEFAULT_THEME:-light}",
+    "showServerConfig": \${SHOW_SERVER_CONFIG:-false},
+    "adminRoles": ["\${ADMIN_ROLES:-admin,superuser}"]
+  },
+  "features": {
+    "deviceManagement": \${ENABLE_DEVICE_MANAGEMENT:-true},
+    "widgetCustomization": \${ENABLE_WIDGET_CUSTOMIZATION:-true},
+    "realTimeUpdates": \${ENABLE_REALTIME_UPDATES:-true},
+    "exportData": \${ENABLE_DATA_EXPORT:-true}
+  }
+}
+EOL
+
+echo "Configuration generated successfully"
+EOF
+
+RUN chmod +x /docker-entrypoint.d/10-generate-config.sh
+
+# Expose port
+EXPOSE 80
+
+# Environment variables with defaults
+ENV API_HOST=localhost \
+    API_PORT=3001 \
+    API_PROTOCOL=http \
+    APP_NAME="TrailCommand Pro" \
+    APP_VERSION=1.0.0 \
+    DEFAULT_THEME=light \
+    SHOW_SERVER_CONFIG=false \
+    SENSOR_INTERVAL=5000 \
+    CONNECTION_CHECK_INTERVAL=60000 \
+    SOCKET_TIMEOUT=20000 \
+    SOCKET_RECONNECT_ATTEMPTS=3 \
+    SOCKET_RECONNECT_DELAY=1000 \
+    ADMIN_ROLES="admin,superuser" \
+    ENABLE_DEVICE_MANAGEMENT=true \
+    ENABLE_WIDGET_CUSTOMIZATION=true \
+    ENABLE_REALTIME_UPDATES=true \
+    ENABLE_DATA_EXPORT=true
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
