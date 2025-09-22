@@ -2823,14 +2823,14 @@ const TrailCommandInterface = () => {
               <button
                 type="submit"
                 disabled={
-                  !validatePassword(registrationForm.password) ||
+                  !Object.values(passwordValidation).every(Boolean) ||
                   registrationForm.password !== registrationForm.confirmPassword ||
                   !registrationForm.firstName ||
                   !registrationForm.lastName ||
                   !registrationForm.email
                 }
                 className={`w-full py-2 px-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${
-                  !validatePassword(registrationForm.password) ||
+                  !Object.values(passwordValidation).every(Boolean) ||
                   registrationForm.password !== registrationForm.confirmPassword ||
                   !registrationForm.firstName ||
                   !registrationForm.lastName ||
