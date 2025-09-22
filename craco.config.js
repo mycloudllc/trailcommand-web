@@ -16,11 +16,15 @@ module.exports = {
     }
   },
   devServer: {
-    https: {
-      key: fs.readFileSync('/etc/letsencrypt/live/app.trailcommandpro.com/privkey.pem'),
-      cert: fs.readFileSync('/etc/letsencrypt/live/app.trailcommandpro.com/fullchain.pem')
+    server: {
+      type: 'https',
+      options: {
+        key: fs.readFileSync('/etc/letsencrypt/live/app.trailcommandpro.com/privkey.pem'),
+        cert: fs.readFileSync('/etc/letsencrypt/live/app.trailcommandpro.com/fullchain.pem')
+      }
     },
     host: '0.0.0.0',
-    port: 443
+    port: 443,
+    allowedHosts: 'all'
   }
 };
