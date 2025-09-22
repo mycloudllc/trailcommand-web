@@ -17,10 +17,10 @@ module.exports = {
   },
   devServer: {
     https: {
-      key: fs.readFileSync(path.resolve(__dirname, 'certs/server.key')),
-      cert: fs.readFileSync(path.resolve(__dirname, 'certs/server.crt'))
+      key: fs.readFileSync('/etc/letsencrypt/live/app.trailcommandpro.com/privkey.pem'),
+      cert: fs.readFileSync('/etc/letsencrypt/live/app.trailcommandpro.com/fullchain.pem')
     },
     host: '0.0.0.0',
-    port: 3000
+    port: 443
   }
 };

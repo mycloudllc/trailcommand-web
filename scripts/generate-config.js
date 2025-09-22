@@ -11,9 +11,9 @@ const path = require('path');
 // Default configuration
 const defaultConfig = {
   api: {
-    host: process.env.REACT_APP_API_HOST || "localhost",
-    port: process.env.REACT_APP_API_PORT || "3001",
-    protocol: process.env.REACT_APP_API_PROTOCOL || "http",
+    host: process.env.REACT_APP_API_HOST || "api.trailcommandpro.com",
+    port: process.env.REACT_APP_API_PORT || "443",
+    protocol: process.env.REACT_APP_API_PROTOCOL || "https",
     endpoints: {
       auth: "/auth",
       devices: "/devices",

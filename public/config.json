@@ -1,0 +1,40 @@
+{
+  "api": {
+    "host": "api.trailcommandpro.com",
+    "port": "443",
+    "protocol": "https",
+    "endpoints": {
+      "auth": "/auth",
+      "devices": "/devices",
+      "sensors": "/sensors",
+      "widgets": "/widgets",
+      "health": "/health"
+    }
+  },
+  "app": {
+    "name": "TrailCommand Pro",
+    "version": "1.0.0",
+    "polling": {
+      "sensorDataInterval": 5000,
+      "connectionCheckInterval": 60000
+    },
+    "socket": {
+      "transports": ["polling", "websocket"],
+      "timeout": 20000,
+      "reconnectionAttempts": 3,
+      "reconnectionDelay": 1000,
+      "forceNew": true
+    }
+  },
+  "ui": {
+    "defaultTheme": "dark",
+    "showServerConfig": false,
+    "adminRoles": ["admin", "superuser"]
+  },
+  "features": {
+    "deviceManagement": true,
+    "widgetCustomization": true,
+    "realTimeUpdates": true,
+    "exportData": true
+  }
+}

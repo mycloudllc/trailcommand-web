@@ -319,7 +319,7 @@ const TrailCommandInterface = () => {
     baseUrl: () => {
       if (!serverConfig.host || !serverConfig.port) {
         console.error('Invalid server configuration in baseUrl:', serverConfig);
-        return 'https://localhost:3001/api'; // Fallback
+        return 'https://api.trailcommandpro.com/api'; // Fallback
       }
       return `https://${serverConfig.host}:${serverConfig.port}/api`;
     },
