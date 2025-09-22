@@ -316,6 +316,16 @@ const TrailCommandInterface = () => {
     validateToken();
   }, []); // Only run once on mount
 
+  // Log authentication state changes (only when state actually changes)
+  useEffect(() => {
+    console.log('🔐 Authentication state changed:', {
+      hasToken: !!token,
+      hasUser: !!user,
+      tokenLength: token ? token.length : 0,
+      username: user?.username || 'null'
+    });
+  }, [token, user]); // Only run when token or user changes
+
   // Check if current user is admin
   const isAdmin = useCallback(() => {
     if (!user || !appConfig) return false;
@@ -2625,13 +2635,6 @@ const TrailCommandInterface = () => {
 
   // Login form
   if (!token || !user) {
-    console.log('🔐 Authentication check failed:', {
-      hasToken: !!token,
-      hasUser: !!user,
-      tokenLength: token ? token.length : 0,
-      username: user?.username || 'null'
-    });
-
     // Get theme from localStorage or default to light for login screen
     const loginTheme = CookieHelper.get('trailcommand-theme') || userSettings.theme || 'light';
     
