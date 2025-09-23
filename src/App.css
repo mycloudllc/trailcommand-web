@@ -36,3 +36,29 @@
 .widget-transition:hover {
   transform: translateY(-2px);
 }
+
+/* Background image styles */
+.login-background {
+  background-image: url('https://images.pexels.com/photos/1008739/pexels-photo-1008739.jpeg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+}
+
+.dashboard-background {
+  background-image: url('https://images.pexels.com/photos/1008739/pexels-photo-1008739.jpeg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* Overlay for better text readability */
+.background-overlay {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+.background-overlay-dark {
+  background-color: rgba(0, 0, 0, 0.85);
+}

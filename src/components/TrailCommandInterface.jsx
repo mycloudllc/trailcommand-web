@@ -159,7 +159,21 @@ const TrailCommandInterface = () => {
     special: false
   });
   const [registrationError, setRegistrationError] = useState('');
-  
+
+  // Email verification state
+  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
+  const [emailVerificationSuccess, setEmailVerificationSuccess] = useState(false);
+  const [emailVerificationError, setEmailVerificationError] = useState('');
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
+  const [resendingVerification, setResendingVerification] = useState(false);
+
+  // Password reset state
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [passwordResetEmail, setPasswordResetEmail] = useState('');
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
+  const [passwordResetForm, setPasswordResetForm] = useState({ token: '', password: '', confirmPassword: '' });
+  const [passwordResetError, setPasswordResetError] = useState('');
+
   // App state
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(null);
@@ -414,6 +428,140 @@ const TrailCommandInterface = () => {
         }
         // Otherwise create a new Error
         throw new Error('Registration failed - network error');
+      }
+    },
+
+    // Email verification
+    async verifyEmail(token) {
+      try {
+        const response = await fetch(`${this.baseUrl()}/auth/verify-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return data;
+        }
+
+        let errorMessage = `Email verification failed (${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+        throw new Error(errorMessage);
+      } catch (error) {
+        console.error('Email verification error:', error);
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error('Email verification failed - network error');
+      }
+    },
+
+    async resendVerification(email) {
+      try {
+        const response = await fetch(`${this.baseUrl()}/auth/resend-verification`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return data;
+        }
+
+        let errorMessage = `Resend verification failed (${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+        throw new Error(errorMessage);
+      } catch (error) {
+        console.error('Resend verification error:', error);
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error('Resend verification failed - network error');
+      }
+    },
+
+    // Password reset
+    async requestPasswordReset(email) {
+      try {
+        const response = await fetch(`${this.baseUrl()}/auth/request-password-reset`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return data;
+        }
+
+        let errorMessage = `Password reset request failed (${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+        throw new Error(errorMessage);
+      } catch (error) {
+        console.error('Password reset request error:', error);
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error('Password reset request failed - network error');
+      }
+    },
+
+    async resetPassword(token, password) {
+      try {
+        const response = await fetch(`${this.baseUrl()}/auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, password })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return data;
+        }
+
+        let errorMessage = `Password reset failed (${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+        throw new Error(errorMessage);
+      } catch (error) {
+        console.error('Password reset error:', error);
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error('Password reset failed - network error');
       }
     },
 
@@ -1182,6 +1330,41 @@ const TrailCommandInterface = () => {
     }
   }, [selectedDevice, token]);
 
+  // Polling for device status updates
+  const pollDeviceStatus = useCallback(async () => {
+    if (!token) {
+      console.log('❌ pollDeviceStatus: No token available');
+      return;
+    }
+
+    try {
+      console.log('🔄 Polling device status...');
+      const result = await TrailCommandAPI.getDevices();
+
+      if (result.devices) {
+        // Update device statuses
+        setDevices(prevDevices => {
+          let hasChanges = false;
+          const updatedDevices = prevDevices.map(prevDevice => {
+            const freshDevice = result.devices.find(d => d.device_id === prevDevice.device_id);
+            if (freshDevice) {
+              const newStatus = freshDevice.status || 'offline';
+              if (prevDevice.status !== newStatus) {
+                console.log(`Device ${prevDevice.name} status changed: ${prevDevice.status} → ${newStatus}`);
+                hasChanges = true;
+                return { ...prevDevice, status: newStatus };
+              }
+            }
+            return prevDevice;
+          });
+          return hasChanges ? updatedDevices : prevDevices;
+        });
+      }
+    } catch (error) {
+      console.error('Device status polling error:', error);
+    }
+  }, [token]);
+
   // Set up polling interval
   useEffect(() => {
     if (!selectedDevice || !token) return;
@@ -1198,6 +1381,39 @@ const TrailCommandInterface = () => {
       clearInterval(pollInterval);
     };
   }, [selectedDevice, token]); // Removed pollWidgetData to prevent infinite loop
+
+  // Set up device status polling based on user's refresh interval setting
+  useEffect(() => {
+    console.log('Device status polling useEffect triggered:', {
+      token: !!token,
+      autoRefresh: userSettings.dashboard.autoRefresh,
+      refreshInterval: userSettings.dashboard.refreshInterval,
+      userSettingsObject: userSettings
+    });
+
+    if (!token) {
+      console.log('❌ No token, skipping device status polling');
+      return;
+    }
+
+    if (!userSettings.dashboard.autoRefresh) {
+      console.log('❌ Auto refresh disabled, skipping device status polling');
+      return;
+    }
+
+    const refreshIntervalMs = userSettings.dashboard.refreshInterval * 1000; // Convert seconds to milliseconds
+    console.log(`✅ Starting device status polling every ${refreshIntervalMs}ms (${userSettings.dashboard.refreshInterval}s)`);
+
+    const statusPollInterval = setInterval(pollDeviceStatus, refreshIntervalMs);
+
+    // Initial poll
+    pollDeviceStatus();
+
+    return () => {
+      console.log('🛑 Stopping device status polling');
+      clearInterval(statusPollInterval);
+    };
+  }, [token, userSettings.dashboard.autoRefresh, userSettings.dashboard.refreshInterval, pollDeviceStatus]);
 
   // Password validation function
   const validatePassword = (password) => {
@@ -1274,24 +1490,11 @@ const TrailCommandInterface = () => {
 
       const result = await TrailCommandAPI.register(userData);
 
-      if (result && result.token) {
-        // Auto-login after successful registration
-        setToken(result.token);
-        setUser(result.user);
-        CookieHelper.set('trailcommand-token', result.token, 7);
-        setShowLogin(false);
-        setRegistrationForm({
-          username: '',
-          email: '',
-          password: '',
-          confirmPassword: '',
-          firstName: '',
-          lastName: ''
-        });
-        alert('Registration successful! Welcome to TrailCommand.');
-      } else {
-        // Registration successful but no auto-login
-        alert('Registration successful! Please log in with your credentials.');
+      if (result) {
+        // Registration successful - show email verification pending page
+        console.log('✅ Registration successful, email verification required');
+        setPendingVerificationEmail(registrationForm.email);
+        setEmailVerificationPending(true);
         setIsRegistering(false);
         setRegistrationForm({
           username: '',
@@ -1305,6 +1508,81 @@ const TrailCommandInterface = () => {
     } catch (error) {
       // Show the exact error message from the API
       setRegistrationError(error.message || 'Registration failed. Please try again.');
+    }
+  };
+
+  // Resend verification email handler
+  const handleResendVerification = async () => {
+    if (!pendingVerificationEmail) return;
+
+    try {
+      setResendingVerification(true);
+      console.log('🔄 Resending verification email...');
+
+      const result = await TrailCommandAPI.resendVerification(pendingVerificationEmail);
+
+      if (result) {
+        console.log('✅ Verification email resent successfully');
+        alert('Verification email has been resent. Please check your inbox.');
+      }
+    } catch (error) {
+      console.error('❌ Failed to resend verification:', error);
+      alert('Failed to resend verification email: ' + error.message);
+    } finally {
+      setResendingVerification(false);
+    }
+  };
+
+  // Password reset request handler
+  const handlePasswordResetRequest = async (e) => {
+    e.preventDefault();
+
+    try {
+      console.log('🔄 Requesting password reset...');
+      const result = await TrailCommandAPI.requestPasswordReset(passwordResetEmail);
+
+      if (result) {
+        console.log('✅ Password reset email sent');
+        setPasswordResetSuccess(true);
+        setPasswordResetError('');
+      }
+    } catch (error) {
+      console.error('❌ Password reset request failed:', error);
+      setPasswordResetError(error.message);
+      setPasswordResetSuccess(false);
+    }
+  };
+
+  // Password reset handler
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+
+    if (passwordResetForm.password !== passwordResetForm.confirmPassword) {
+      setPasswordResetError('Passwords do not match');
+      return;
+    }
+
+    if (!validatePassword(passwordResetForm.password)) {
+      setPasswordResetError('Password does not meet security requirements');
+      return;
+    }
+
+    try {
+      console.log('🔄 Resetting password...');
+      const result = await TrailCommandAPI.resetPassword(passwordResetForm.token, passwordResetForm.password);
+
+      if (result) {
+        console.log('✅ Password reset successful');
+        alert('Password reset successful! You can now log in with your new password.');
+        setShowPasswordReset(false);
+        setPasswordResetForm({ token: '', password: '', confirmPassword: '' });
+        setPasswordResetError('');
+        // Clear URL parameter
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch (error) {
+      console.error('❌ Password reset failed:', error);
+      setPasswordResetError(error.message);
     }
   };
 
@@ -1359,14 +1637,20 @@ const TrailCommandInterface = () => {
   // Load devices
   const loadDevices = async () => {
     if (!token) return;
-    
+
     try {
       const result = await TrailCommandAPI.getDevices();
-      setDevices(result.devices || []);
-      
+      // Ensure all devices have a status field, defaulting to 'offline' if not provided
+      const devicesWithStatus = (result.devices || []).map(device => ({
+        ...device,
+        status: device.status || 'offline'
+      }));
+
+      setDevices(devicesWithStatus);
+
       // If no device selected but we have devices, select the first one
-      if (!selectedDevice && result.devices.length > 0) {
-        setSelectedDevice(result.devices[0]);
+      if (!selectedDevice && devicesWithStatus.length > 0) {
+        setSelectedDevice(devicesWithStatus[0]);
       }
     } catch (error) {
       console.error('Failed to load devices:', error);
@@ -1812,15 +2096,19 @@ const TrailCommandInterface = () => {
     try {
       // Save theme to cookies for persistence
       CookieHelper.set('trailcommand-theme', userSettings.theme, 30); // 30 days for theme
-      
+
+      // Save dashboard settings to cookies for persistence
+      CookieHelper.set('trailcommand-dashboard-settings', JSON.stringify(userSettings.dashboard), 30); // 30 days for dashboard settings
+      console.log('💾 Saved dashboard settings to cookies:', userSettings.dashboard);
+
       const result = await TrailCommandAPI.updateSettings(userSettings);
       if (result) {
-        console.log('Settings updated successfully!');
+        console.log('✅ Settings updated successfully!');
       } else {
-        console.log('Failed to update settings');
+        console.log('❌ Failed to update settings');
       }
     } catch (error) {
-      console.error('Error updating settings:', error);
+      console.error('❌ Error updating settings:', error);
     }
   };
 
@@ -1881,6 +2169,64 @@ const TrailCommandInterface = () => {
       loadDevices();
     }
   }, [token, user]);
+
+  // Load dashboard settings from localStorage on startup
+  useEffect(() => {
+    const savedDashboardSettings = CookieHelper.get('trailcommand-dashboard-settings');
+    if (savedDashboardSettings) {
+      try {
+        const parsedSettings = JSON.parse(savedDashboardSettings);
+        setUserSettings(prev => ({
+          ...prev,
+          dashboard: { ...prev.dashboard, ...parsedSettings }
+        }));
+        console.log('✅ Loaded dashboard settings from cookies:', parsedSettings);
+      } catch (error) {
+        console.error('❌ Failed to parse dashboard settings from cookies:', error);
+      }
+    }
+  }, []);
+
+  // Handle URL parameters for email verification and password reset
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const verifyToken = urlParams.get('verify');
+    const resetToken = urlParams.get('reset');
+
+    if (verifyToken) {
+      handleEmailVerification(verifyToken);
+    } else if (resetToken) {
+      setPasswordResetForm(prev => ({ ...prev, token: resetToken }));
+      setShowPasswordReset(true);
+    }
+  }, []);
+
+  // Email verification handler
+  const handleEmailVerification = async (token) => {
+    try {
+      console.log('🔄 Verifying email with token...');
+      const result = await TrailCommandAPI.verifyEmail(token);
+
+      if (result) {
+        console.log('✅ Email verification successful!');
+        setEmailVerificationSuccess(true);
+        setEmailVerificationError('');
+
+        // Clear URL parameter
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Redirect to login after 3 seconds
+        setTimeout(() => {
+          setEmailVerificationSuccess(false);
+          setShowLogin(true);
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('❌ Email verification failed:', error);
+      setEmailVerificationError(error.message);
+      setEmailVerificationSuccess(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedDevice) {
@@ -2672,14 +3018,247 @@ const TrailCommandInterface = () => {
   if (!token || !user) {
     // Get theme from localStorage or default to light for login screen
     const loginTheme = CookieHelper.get('trailcommand-theme') || userSettings.theme || 'light';
-    
+
+    // Email verification success page
+    if (emailVerificationSuccess) {
+      return (
+        <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 login-background ${
+          loginTheme === 'dark' ? 'dark' : ''
+        }`}>
+          <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-xl shadow-xl p-8 w-full max-w-md">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h1>
+              <p className="text-gray-600 mb-4">
+                Thank you for verifying your email address. You will be redirected to the login page shortly.
+              </p>
+              <div className="text-sm text-gray-500">
+                Redirecting in 3 seconds...
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Email verification error page
+    if (emailVerificationError) {
+      return (
+        <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 login-background ${
+          loginTheme === 'dark' ? 'dark' : ''
+        }`}>
+          <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-xl shadow-xl p-8 w-full max-w-md">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <X className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Verification Failed</h1>
+              <p className="text-gray-600 mb-4">
+                {emailVerificationError}
+              </p>
+              <button
+                onClick={() => {
+                  setEmailVerificationError('');
+                  window.history.replaceState({}, document.title, window.location.pathname);
+                }}
+                className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Back to Login
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Email verification pending page
+    if (emailVerificationPending) {
+      return (
+        <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 login-background ${
+          loginTheme === 'dark' ? 'dark' : ''
+        }`}>
+          <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-xl shadow-xl p-8 w-full max-w-md">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Check Your Email</h1>
+              <p className="text-gray-600 mb-4">
+                We've sent a verification link to <strong>{pendingVerificationEmail}</strong>.
+                Please check your email and click the link to verify your account.
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={handleResendVerification}
+                  disabled={resendingVerification}
+                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {resendingVerification ? 'Sending...' : 'Resend Verification Email'}
+                </button>
+                <button
+                  onClick={() => {
+                    setEmailVerificationPending(false);
+                    setPendingVerificationEmail('');
+                  }}
+                  className="w-full py-2 px-4 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Back to Login
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Password reset page
+    if (showPasswordReset) {
+      return (
+        <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 login-background ${
+          loginTheme === 'dark' ? 'dark' : ''
+        }`}>
+          <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-xl shadow-xl p-8 w-full max-w-md">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.74 5.74L14.5 17H9a2 2 0 01-2-2V9.5l.26-.26A6 6 0 0119 9z" />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
+              <p className="text-gray-600">Enter your new password below</p>
+            </div>
+
+            {passwordResetForm.token ? (
+              // Reset password form (when user has token)
+              <form onSubmit={handlePasswordReset} className="space-y-6">
+                {passwordResetError && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <div className="text-sm text-red-800">{passwordResetError}</div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordResetForm.password}
+                    onChange={(e) => setPasswordResetForm(prev => ({ ...prev, password: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordResetForm.confirmPassword}
+                    onChange={(e) => setPasswordResetForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Reset Password
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordReset(false);
+                    setPasswordResetForm({ token: '', password: '', confirmPassword: '' });
+                    setPasswordResetError('');
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                  }}
+                  className="w-full py-2 px-4 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Back to Login
+                </button>
+              </form>
+            ) : (
+              // Request password reset form
+              <form onSubmit={handlePasswordResetRequest} className="space-y-6">
+                {passwordResetError && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <div className="text-sm text-red-800">{passwordResetError}</div>
+                  </div>
+                )}
+
+                {passwordResetSuccess ? (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
+                    <div className="text-sm text-green-800 mb-2">
+                      Password reset email sent! Please check your inbox for further instructions.
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowPasswordReset(false);
+                        setPasswordResetSuccess(false);
+                        setPasswordResetEmail('');
+                      }}
+                      className="text-blue-600 hover:text-blue-800 text-sm"
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={passwordResetEmail}
+                        onChange={(e) => setPasswordResetEmail(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      Send Reset Email
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordReset(false)}
+                      className="w-full py-2 px-4 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                    >
+                      Back to Login
+                    </button>
+                  </>
+                )}
+              </form>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 ${
-        loginTheme === 'dark' 
-          ? 'bg-gradient-to-br from-gray-900 to-gray-800 dark' 
-          : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+      <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 login-background ${
+        loginTheme === 'dark'
+          ? 'dark'
+          : ''
       }`}>
-        <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
+        <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-xl shadow-xl p-8 w-full max-w-md">
           <div className="text-center mb-8">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center">
               <Monitor className="w-10 h-10 text-white" />
@@ -2725,6 +3304,16 @@ const TrailCommandInterface = () => {
                 <LogIn className="w-4 h-4 inline mr-2" />
                 Sign In
               </button>
+
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordReset(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Forgot your password?
+                </button>
+              </div>
             </form>
           ) : (
             <form onSubmit={handleRegistration} className="space-y-4">
@@ -2963,10 +3552,10 @@ const TrailCommandInterface = () => {
 
   // Main dashboard
   return (
-    <div className={`h-screen flex flex-col transition-colors duration-200 ${
-      userSettings.theme === 'dark' 
-        ? 'bg-gray-900 dark' 
-        : 'bg-gray-100'
+    <div className={`h-screen flex flex-col transition-colors duration-200 dashboard-background ${
+      userSettings.theme === 'dark'
+        ? 'dark'
+        : ''
     }`}>
       <style>{`
         .slider-custom::-webkit-slider-thumb {
@@ -3088,7 +3677,11 @@ const TrailCommandInterface = () => {
       `}</style>
 
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+      <header className={`${
+        userSettings.theme === 'dark'
+          ? 'bg-gray-900 bg-opacity-90 backdrop-blur-sm border-gray-600'
+          : 'bg-white bg-opacity-90 backdrop-blur-sm border-gray-200'
+      } shadow-sm border-b px-4 py-3 flex items-center justify-between`}>
         <div className="flex items-center space-x-4">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -3196,7 +3789,11 @@ const TrailCommandInterface = () => {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${
+        <div className={`${
+          userSettings.theme === 'dark'
+            ? 'bg-gray-900 bg-opacity-90 backdrop-blur-sm border-gray-600'
+            : 'bg-white bg-opacity-90 backdrop-blur-sm border-gray-200'
+        } border-r transition-all duration-300 ${
           sidebarCollapsed ? 'w-16' : 'w-80'
         } flex flex-col`}>
           
@@ -3245,14 +3842,12 @@ const TrailCommandInterface = () => {
                                 {device.name}
                               </div>
                               <div className={`w-2 h-2 rounded-full ${
-                                (device.status === 'online' || device.status === 'connected' || (selectedDevice?.device_id === device.device_id && widgets.length > 0)) 
+                                (device.status === 'online' || device.status === 'connected')
                                   ? 'bg-green-500' : 'bg-gray-400'
                               }`} title={`${
-                                (device.status === 'online' || device.status === 'connected') 
-                                  ? 'Connected' 
-                                  : (selectedDevice?.device_id === device.device_id && widgets.length > 0)
-                                    ? 'Functional (has data)'
-                                    : 'Disconnected'
+                                (device.status === 'online' || device.status === 'connected')
+                                  ? 'Connected'
+                                  : 'Disconnected'
                               } • Status: ${device.status || 'unknown'}`} />
                             </div>
                             {device.uuid && (
@@ -3318,7 +3913,7 @@ const TrailCommandInterface = () => {
                       <Smartphone className="w-5 h-5" />
                       {/* Status indicator */}
                       <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
-                        (device.status === 'online' || device.status === 'connected' || (selectedDevice?.device_id === device.device_id && widgets.length > 0)) 
+                        (device.status === 'online' || device.status === 'connected')
                           ? 'bg-green-500' : 'bg-gray-400'
                       }`} />
                     </button>
@@ -3443,7 +4038,11 @@ const TrailCommandInterface = () => {
         </div>
 
         {/* Main content */}
-        <div className="flex-1 overflow-auto">
+        <div className={`flex-1 overflow-auto ${
+          userSettings.theme === 'dark'
+            ? 'bg-gray-900 bg-opacity-75 backdrop-blur-sm'
+            : 'bg-white bg-opacity-75 backdrop-blur-sm'
+        }`}>
           {selectedDevice ? (
             <div className="p-6">
               <div className="mb-6">
@@ -4331,10 +4930,14 @@ const TrailCommandInterface = () => {
                             <p className="text-xs text-gray-500">Automatically refresh dashboard data</p>
                           </div>
                           <button
-                            onClick={() => setUserSettings(prev => ({ 
-                              ...prev, 
-                              dashboard: { ...prev.dashboard, autoRefresh: !prev.dashboard.autoRefresh }
-                            }))}
+                            onClick={() => {
+                              setUserSettings(prev => ({
+                                ...prev,
+                                dashboard: { ...prev.dashboard, autoRefresh: !prev.dashboard.autoRefresh }
+                              }));
+                              // Auto-save dashboard settings
+                              setTimeout(handleUpdateSettings, 100);
+                            }}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                               userSettings.dashboard.autoRefresh ? 'bg-blue-600' : 'bg-gray-200'
                             }`}
@@ -4353,10 +4956,14 @@ const TrailCommandInterface = () => {
                             </label>
                             <select
                               value={userSettings.dashboard.refreshInterval}
-                              onChange={(e) => setUserSettings(prev => ({ 
-                                ...prev, 
-                                dashboard: { ...prev.dashboard, refreshInterval: parseInt(e.target.value) }
-                              }))}
+                              onChange={(e) => {
+                                setUserSettings(prev => ({
+                                  ...prev,
+                                  dashboard: { ...prev.dashboard, refreshInterval: parseInt(e.target.value) }
+                                }));
+                                // Auto-save dashboard settings
+                                setTimeout(handleUpdateSettings, 100);
+                              }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                             >
                               <option value={10}>10 seconds</option>
