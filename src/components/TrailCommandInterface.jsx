@@ -1234,11 +1234,18 @@ const TrailCommandInterface = () => {
 
     try {
       const userData = {
+        username: `${registrationForm.firstName}${registrationForm.lastName}`.toLowerCase().replace(/\s+/g, ''),
         email: registrationForm.email,
-        password: registrationForm.password,
-        firstName: registrationForm.firstName,
-        lastName: registrationForm.lastName
+        password: registrationForm.password
       };
+
+      // Add optional fields if provided
+      if (registrationForm.firstName) {
+        userData.firstName = registrationForm.firstName;
+      }
+      if (registrationForm.lastName) {
+        userData.lastName = registrationForm.lastName;
+      }
 
       const result = await TrailCommandAPI.register(userData);
 
@@ -2696,7 +2703,7 @@ const TrailCommandInterface = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    First Name
+                    First Name <span className="text-gray-400 font-normal">(optional)</span>
                   </label>
                   <input
                     type="text"
@@ -2704,12 +2711,11 @@ const TrailCommandInterface = () => {
                     onChange={(e) => setRegistrationForm(prev => ({ ...prev, firstName: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     placeholder="John"
-                    required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Last Name
+                    Last Name <span className="text-gray-400 font-normal">(optional)</span>
                   </label>
                   <input
                     type="text"
@@ -2717,7 +2723,6 @@ const TrailCommandInterface = () => {
                     onChange={(e) => setRegistrationForm(prev => ({ ...prev, lastName: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Doe"
-                    required
                   />
                 </div>
               </div>
@@ -2825,15 +2830,11 @@ const TrailCommandInterface = () => {
                 disabled={
                   !Object.values(passwordValidation).every(Boolean) ||
                   registrationForm.password !== registrationForm.confirmPassword ||
-                  !registrationForm.firstName ||
-                  !registrationForm.lastName ||
                   !registrationForm.email
                 }
                 className={`w-full py-2 px-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${
                   !Object.values(passwordValidation).every(Boolean) ||
                   registrationForm.password !== registrationForm.confirmPassword ||
-                  !registrationForm.firstName ||
-                  !registrationForm.lastName ||
                   !registrationForm.email
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 focus:ring-green-500'
