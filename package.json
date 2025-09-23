@@ -1,5 +1,5 @@
 {
-  "name": "blynk-legacy-web",
+  "name": "trailcommand-web",
   "version": "1.0.0",
   "private": true,
   "dependencies": {
@@ -8,6 +8,7 @@
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^13.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "express": "^4.18.2",
     "lucide-react": "^0.263.1",
     "preact": "^10.27.2",
     "react-gauge-component": "^1.2.64",
@@ -20,7 +21,9 @@
     "start": "craco start",
     "build": "craco build",
     "test": "craco test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "server": "node server.js",
+    "deploy": "npm run build && sudo ./deploy.sh"
   },
   "eslintConfig": {
     "extends": [
