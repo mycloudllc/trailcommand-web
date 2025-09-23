@@ -390,14 +390,22 @@ const TrailCommandInterface = () => {
         }
 
         // Try to get error message from JSON response
+        let errorMessage = `Registration failed (${response.status})`;
         try {
           const errorData = await response.json();
-          throw new Error(errorData.message || errorData.error || `Registration failed (${response.status})`);
+          errorMessage = errorData.error || errorData.message || errorMessage;
         } catch (parseError) {
-          // If JSON parsing fails, use response text or status
-          const errorText = await response.text().catch(() => '');
-          throw new Error(errorText || `Registration failed (${response.status})`);
+          // If JSON parsing fails, try to get response text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch (textError) {
+            // Use the default message with status code
+          }
         }
+        throw new Error(errorMessage);
       } catch (error) {
         console.error('Registration error:', error);
         // If it's already an Error object, re-throw it
