@@ -346,7 +346,7 @@ const TrailCommandInterface = () => {
         console.error('Invalid server configuration in baseUrl:', serverConfig);
         return 'https://api.trailcommandpro.com/api'; // Fallback
       }
-      return `https://${serverConfig.host}:${serverConfig.port}/api`;
+      return `https://api.trailcommandpro.com/api`;
     },
     
     getAuthHeaders: () => ({
