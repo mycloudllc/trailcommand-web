@@ -158,6 +158,7 @@ const TrailCommandInterface = () => {
     number: false,
     special: false
   });
+  const [registrationError, setRegistrationError] = useState('');
   
   // App state
   const [devices, setDevices] = useState([]);
@@ -1222,14 +1223,17 @@ const TrailCommandInterface = () => {
   const handleRegistration = async (e) => {
     e.preventDefault();
 
+    // Clear previous errors
+    setRegistrationError('');
+
     // Validation
     if (registrationForm.password !== registrationForm.confirmPassword) {
-      alert('Passwords do not match');
+      setRegistrationError('Passwords do not match');
       return;
     }
 
     if (!validatePassword(registrationForm.password)) {
-      alert('Password does not meet security requirements. Please check the requirements below.');
+      setRegistrationError('Password does not meet security requirements. Please check the requirements below.');
       return;
     }
 
@@ -1279,7 +1283,15 @@ const TrailCommandInterface = () => {
         });
       }
     } catch (error) {
-      alert('Registration failed: ' + error.message);
+      // Check if error message indicates duplicate email
+      if (error.message.toLowerCase().includes('email') &&
+          (error.message.toLowerCase().includes('already') ||
+           error.message.toLowerCase().includes('exists') ||
+           error.message.toLowerCase().includes('duplicate'))) {
+        setRegistrationError('User already exists with this email');
+      } else {
+        setRegistrationError(error.message || 'Registration failed. Please try again.');
+      }
     }
   };
 
@@ -2703,6 +2715,18 @@ const TrailCommandInterface = () => {
             </form>
           ) : (
             <form onSubmit={handleRegistration} className="space-y-4">
+              {registrationError && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800">
+                        {registrationError}
+                      </h3>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2751,7 +2775,10 @@ const TrailCommandInterface = () => {
                 <input
                   type="email"
                   value={registrationForm.email}
-                  onChange={(e) => setRegistrationForm(prev => ({ ...prev, email: e.target.value }))}
+                  onChange={(e) => {
+                    setRegistrationForm(prev => ({ ...prev, email: e.target.value }));
+                    if (registrationError) setRegistrationError('');
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   placeholder="john@example.com"
                   required
