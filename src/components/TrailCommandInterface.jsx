@@ -1283,15 +1283,8 @@ const TrailCommandInterface = () => {
         });
       }
     } catch (error) {
-      // Check if error message indicates duplicate email
-      if (error.message.toLowerCase().includes('email') &&
-          (error.message.toLowerCase().includes('already') ||
-           error.message.toLowerCase().includes('exists') ||
-           error.message.toLowerCase().includes('duplicate'))) {
-        setRegistrationError('User already exists with this email');
-      } else {
-        setRegistrationError(error.message || 'Registration failed. Please try again.');
-      }
+      // Show the exact error message from the API
+      setRegistrationError(error.message || 'Registration failed. Please try again.');
     }
   };
 
