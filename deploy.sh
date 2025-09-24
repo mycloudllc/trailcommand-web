@@ -38,6 +38,8 @@ cp -r ./build "$APP_DIR/"
 cp ./server.js "$APP_DIR/"
 cp ./package.json "$APP_DIR/"
 cp ./.env.production "$APP_DIR/.env"
+cp ./start-trailcommand.sh "$APP_DIR/"
+cp ./craco.config.js "$APP_DIR/" 2>/dev/null || echo "ℹ️ craco.config.js not found, skipping"
 
 # Install production dependencies
 echo "📚 Installing Node.js dependencies..."
@@ -52,6 +54,13 @@ chmod 644 "$APP_DIR/.env"
 
 # Make server.js executable
 chmod +x "$APP_DIR/server.js"
+
+# Verify Node.js installation and server.js syntax
+echo "🔍 Checking Node.js and server.js..."
+node --version
+echo "📄 Checking server.js syntax:"
+cd "$APP_DIR"
+node -c server.js && echo "✅ server.js syntax is valid" || echo "❌ server.js syntax error"
 
 # Copy and install systemd service
 echo "⚙️ Installing systemd service..."

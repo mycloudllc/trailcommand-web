@@ -23,7 +23,7 @@ Environment=SSL_CERT_PATH=/etc/letsencrypt/live/app.trailcommandpro.com/fullchai
 WorkingDirectory=/home/trailcommand/trailcommand-web
 
 # Command to run
-ExecStart=/usr/bin/node server.js
+ExecStart=/bin/bash /home/trailcommand/trailcommand-web/start-trailcommand.sh
 
 # Restart configuration
 Restart=always
