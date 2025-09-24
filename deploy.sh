@@ -8,7 +8,7 @@ set -e  # Exit on any error
 # Configuration
 USER_NAME="trailcommand"
 GROUP_NAME="trailcommand"
-APP_DIR="/opt/trailcommand"
+APP_DIR="/home/trailcommand/trailcommand-web"
 SERVICE_NAME="trailcommand-web"
 
 echo "🚀 Deploying TrailCommand Web Server..."

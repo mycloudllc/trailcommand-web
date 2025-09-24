@@ -6,6 +6,8 @@ This guide shows how to deploy the TrailCommand web application with privilege d
 
 - **Privilege Dropping**: Starts as root to bind to port 443, then drops to unprivileged user
 - **HTTPS Only**: Requires SSL certificates for secure connections
+- **CRACO Integration**: Uses the same SSL certificate paths as your development environment
+- **Let's Encrypt Support**: Automatically reads Let's Encrypt certificates
 - **Systemd Integration**: Managed by systemd with security hardening
 - **Process Isolation**: Restricted file system and network access
 
@@ -30,18 +32,22 @@ sudo chmod +x setup-user.sh
 sudo ./setup-user.sh
 ```
 
-### 3. Generate SSL Certificates (if needed)
-```bash
-# Self-signed certificate (for testing)
-sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout /etc/ssl/private/trailcommand.key \
-  -out /etc/ssl/certs/trailcommand.crt
+### 3. Generate SSL Certificates (if not already done)
+The server uses the same SSL certificate paths as your CRACO development configuration.
 
-# Set proper permissions
-sudo chown root:trailcommand /etc/ssl/private/trailcommand.key
-sudo chmod 640 /etc/ssl/private/trailcommand.key
-sudo chown root:trailcommand /etc/ssl/certs/trailcommand.crt
-sudo chmod 644 /etc/ssl/certs/trailcommand.crt
+```bash
+# Option A: Let's Encrypt (Production - Recommended)
+sudo apt install certbot  # Ubuntu/Debian
+# or
+sudo yum install certbot   # CentOS/RHEL
+
+sudo certbot certonly --standalone -d app.trailcommandpro.com
+
+# Option B: Self-signed certificate (Testing only)
+sudo mkdir -p /etc/letsencrypt/live/app.trailcommandpro.com
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/letsencrypt/live/app.trailcommandpro.com/privkey.pem \
+  -out /etc/letsencrypt/live/app.trailcommandpro.com/fullchain.pem
 ```
 
 ### 4. Deploy the Application
@@ -54,29 +60,29 @@ sudo ./deploy.sh
 
 ### 1. Create Dedicated User
 ```bash
-sudo useradd --system --create-home --home-dir /opt/trailcommand \
+sudo useradd --system --create-home --home-dir /home/trailcommand \
   --shell /bin/false --comment "TrailCommand Web Server" trailcommand
 ```
 
 ### 2. Copy Application Files
 ```bash
-sudo mkdir -p /opt/trailcommand
-sudo cp -r build /opt/trailcommand/
-sudo cp server.js /opt/trailcommand/
-sudo cp package.json /opt/trailcommand/
-sudo cp .env.production /opt/trailcommand/.env
+sudo mkdir -p /home/trailcommand/trailcommand-web
+sudo cp -r build /home/trailcommand/trailcommand-web/
+sudo cp server.js /home/trailcommand/trailcommand-web/
+sudo cp package.json /home/trailcommand/trailcommand-web/
+sudo cp .env.production /home/trailcommand/trailcommand-web/.env
 ```
 
 ### 3. Install Dependencies
 ```bash
-cd /opt/trailcommand
+cd /home/trailcommand/trailcommand-web
 sudo npm install --production
 ```
 
 ### 4. Set Permissions
 ```bash
-sudo chown -R trailcommand:trailcommand /opt/trailcommand
-sudo chmod +x /opt/trailcommand/server.js
+sudo chown -R trailcommand:trailcommand /home/trailcommand
+sudo chmod +x /home/trailcommand/trailcommand-web/server.js
 ```
 
 ### 5. Install Systemd Service
@@ -148,9 +154,22 @@ PORT=443
 HOST=0.0.0.0
 DROP_USER=trailcommand
 DROP_GROUP=trailcommand
-SSL_KEY_PATH=/etc/ssl/private/trailcommand.key
-SSL_CERT_PATH=/etc/ssl/certs/trailcommand.crt
+SSL_DOMAIN=app.trailcommandpro.com
+SSL_KEY_PATH=/etc/letsencrypt/live/app.trailcommandpro.com/privkey.pem
+SSL_CERT_PATH=/etc/letsencrypt/live/app.trailcommandpro.com/fullchain.pem
 ```
+
+### CRACO Integration
+The production server automatically reads SSL configuration from your `craco.config.js` file if present, ensuring consistency between development and production environments.
+
+**How it works:**
+1. Server tries to load SSL paths from `craco.config.js`
+2. Falls back to environment variables if CRACO config not available
+3. Uses default Let's Encrypt paths as final fallback
+
+This means your existing Let's Encrypt certificates at `/etc/letsencrypt/live/app.trailcommandpro.com/` will be automatically detected and used.
+
+**Application Directory**: `/home/trailcommand/trailcommand-web/`
 
 ### Systemd Service Customization
 Edit `/etc/systemd/system/trailcommand-web.service` to modify:
@@ -220,10 +239,10 @@ sudo ./deploy.sh
 
 ### Backup
 Important files to backup:
-- `/opt/trailcommand/` (application files)
-- `/etc/ssl/private/trailcommand.key` (SSL private key)
-- `/etc/ssl/certs/trailcommand.crt` (SSL certificate)
+- `/home/trailcommand/trailcommand-web/` (application files)
+- `/etc/letsencrypt/live/app.trailcommandpro.com/` (SSL certificates)
 - `/etc/systemd/system/trailcommand-web.service` (service config)
+- `/var/log/trailcommand/` (log files)
 
 ## 🔐 Security Best Practices
 

@@ -11,9 +11,42 @@ const HOST = process.env.HOST || '0.0.0.0';
 const DROP_USER = process.env.DROP_USER || 'trailcommand';
 const DROP_GROUP = process.env.DROP_GROUP || 'trailcommand';
 
-// SSL Certificate paths
-const SSL_KEY_PATH = process.env.SSL_KEY_PATH || '/etc/ssl/private/trailcommand.key';
-const SSL_CERT_PATH = process.env.SSL_CERT_PATH || '/etc/ssl/certs/trailcommand.crt';
+// Function to load SSL config from CRACO if available
+function getSSLConfig() {
+  try {
+    // Try to load CRACO config for SSL paths
+    const cracoConfigPath = path.join(__dirname, 'craco.config.js');
+    if (fs.existsSync(cracoConfigPath)) {
+      delete require.cache[require.resolve('./craco.config.js')]; // Clear cache
+      const cracoConfig = require('./craco.config.js');
+
+      if (cracoConfig.devServer?.server?.options) {
+        const options = cracoConfig.devServer.server.options;
+        console.log('📋 Loading SSL config from CRACO configuration');
+        return {
+          key: options.key,
+          cert: options.cert
+        };
+      }
+    }
+  } catch (error) {
+    console.log('ℹ️  Could not load CRACO config, using environment/default paths');
+  }
+
+  // Fallback to environment variables or default paths
+  const SSL_DOMAIN = process.env.SSL_DOMAIN || 'app.trailcommandpro.com';
+  const SSL_KEY_PATH = process.env.SSL_KEY_PATH || `/etc/letsencrypt/live/${SSL_DOMAIN}/privkey.pem`;
+  const SSL_CERT_PATH = process.env.SSL_CERT_PATH || `/etc/letsencrypt/live/${SSL_DOMAIN}/fullchain.pem`;
+
+  console.log('📋 Using SSL certificate paths:');
+  console.log(`   Key: ${SSL_KEY_PATH}`);
+  console.log(`   Cert: ${SSL_CERT_PATH}`);
+
+  return {
+    key: fs.readFileSync(SSL_KEY_PATH),
+    cert: fs.readFileSync(SSL_CERT_PATH)
+  };
+}
 
 // Function to drop privileges safely
 function dropPrivileges() {
@@ -75,26 +108,24 @@ function dropPrivileges() {
 // Function to check SSL certificates
 function checkSSLCertificates() {
   try {
-    if (!fs.existsSync(SSL_KEY_PATH)) {
-      throw new Error(`SSL private key not found at: ${SSL_KEY_PATH}`);
-    }
-
-    if (!fs.existsSync(SSL_CERT_PATH)) {
-      throw new Error(`SSL certificate not found at: ${SSL_CERT_PATH}`);
-    }
-
-    // Check if we can read the certificates
-    fs.readFileSync(SSL_KEY_PATH);
-    fs.readFileSync(SSL_CERT_PATH);
-
+    // Try to load SSL config - this will throw if certificates are not found
+    const sslConfig = getSSLConfig();
     console.log('✅ SSL certificates found and readable');
-    return true;
+    return { valid: true, config: sslConfig };
   } catch (error) {
     console.error('❌ SSL certificate error:', error.message);
-    console.error('💡 Generate self-signed certificates with:');
+
+    // Try to determine paths for help message
+    const SSL_DOMAIN = process.env.SSL_DOMAIN || 'app.trailcommandpro.com';
+    const keyPath = `/etc/letsencrypt/live/${SSL_DOMAIN}/privkey.pem`;
+    const certPath = `/etc/letsencrypt/live/${SSL_DOMAIN}/fullchain.pem`;
+
+    console.error('💡 For Let\'s Encrypt certificates, ensure certbot is installed and run:');
+    console.error(`   sudo certbot certonly --standalone -d ${SSL_DOMAIN}`);
+    console.error('💡 Or generate self-signed certificates with:');
     console.error('   sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \\');
-    console.error(`     -keyout ${SSL_KEY_PATH} -out ${SSL_CERT_PATH}`);
-    return false;
+    console.error(`     -keyout ${keyPath} -out ${certPath}`);
+    return { valid: false, config: null };
   }
 }
 
@@ -153,16 +184,14 @@ async function startServer() {
     }
 
     // Check SSL certificates before binding to port
-    if (!checkSSLCertificates()) {
+    const sslCheck = checkSSLCertificates();
+    if (!sslCheck.valid) {
       console.error('❌ Cannot start HTTPS server without valid SSL certificates');
       process.exit(1);
     }
 
-    // SSL options
-    const sslOptions = {
-      key: fs.readFileSync(SSL_KEY_PATH),
-      cert: fs.readFileSync(SSL_CERT_PATH)
-    };
+    // SSL options from CRACO config or fallback
+    const sslOptions = sslCheck.config;
 
     // Create HTTPS server
     const server = https.createServer(sslOptions, app);

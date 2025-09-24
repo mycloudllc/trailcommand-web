@@ -15,11 +15,12 @@ Environment=PORT=443
 Environment=HOST=0.0.0.0
 Environment=DROP_USER=trailcommand
 Environment=DROP_GROUP=trailcommand
-Environment=SSL_KEY_PATH=/etc/ssl/private/trailcommand.key
-Environment=SSL_CERT_PATH=/etc/ssl/certs/trailcommand.crt
+Environment=SSL_DOMAIN=app.trailcommandpro.com
+Environment=SSL_KEY_PATH=/etc/letsencrypt/live/app.trailcommandpro.com/privkey.pem
+Environment=SSL_CERT_PATH=/etc/letsencrypt/live/app.trailcommandpro.com/fullchain.pem
 
 # Working directory
-WorkingDirectory=/opt/trailcommand
+WorkingDirectory=/home/trailcommand/trailcommand-web
 
 # Command to run
 ExecStart=/usr/bin/node server.js
@@ -46,8 +47,7 @@ RestrictNamespaces=true
 
 # File system permissions
 ReadWritePaths=/var/log/trailcommand
-ReadOnlyPaths=/etc/ssl/certs/trailcommand.crt
-ReadOnlyPaths=/etc/ssl/private/trailcommand.key
+ReadOnlyPaths=/etc/letsencrypt/live/app.trailcommandpro.com
 
 # Network restrictions
 RestrictAddressFamilies=AF_INET AF_INET6
