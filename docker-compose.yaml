@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  trailcommand-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: trailcommand/web:latest
+    container_name: trailcommand-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/logs
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.trailcommand-web.rule=Host(`app.trailcommandpro.com`)"
+      - "traefik.http.routers.trailcommand-web.entrypoints=websecure"
+      - "traefik.http.routers.trailcommand-web.tls=true"
+      - "traefik.http.routers.trailcommand-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.trailcommand-web.loadbalancer.server.port=3000"
+      - "traefik.http.routers.trailcommand-web.middlewares=secure-headers@docker,compress@docker"
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    external: true

@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: trailcommand-web
+
+resources:
+- deployment.yaml
+- service.yaml
+- ingress.yaml
+- traefik-middleware.yaml
+
+commonLabels:
+  app: trailcommand-web
+  version: v1.0.0
+
+images:
+- name: trailcommand/web
+  newTag: latest
+
+replicas:
+- name: trailcommand-web
+  count: 2

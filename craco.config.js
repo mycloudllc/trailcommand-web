@@ -1,6 +1,3 @@
-const fs = require('fs');
-const path = require('path');
-
 module.exports = {
   webpack: {
     alias: {
@@ -16,15 +13,8 @@ module.exports = {
     }
   },
   devServer: {
-    server: {
-      type: 'https',
-      options: {
-        key: fs.readFileSync('/etc/letsencrypt/live/app.trailcommandpro.com/privkey.pem'),
-        cert: fs.readFileSync('/etc/letsencrypt/live/app.trailcommandpro.com/fullchain.pem')
-      }
-    },
     host: '0.0.0.0',
-    port: 443,
+    port: 3000,
     allowedHosts: 'all'
   }
 };

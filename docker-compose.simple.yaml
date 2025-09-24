@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - CADDY_ADMIN=0.0.0.0:2019  # Enable admin API
+
+  caddy-manager:
+    image: caddymanager/caddy-manager:latest
+    container_name: caddy-manager
+    restart: unless-stopped
+    ports:
+      - "2020:2020"
+    environment:
+      - CADDY_SERVER=http://caddy:2019
+    depends_on:
+      - caddy
+
+  trailcommand-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trailcommand-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # Keep for debugging
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+
+volumes:
+  caddy_data:
+  caddy_config:
