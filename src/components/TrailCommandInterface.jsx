@@ -2191,13 +2191,31 @@ const TrailCommandInterface = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const verifyToken = urlParams.get('verify');
-    const resetToken = urlParams.get('reset');
+    // Support multiple password reset URL formats
+    const resetToken = urlParams.get('reset') || urlParams.get('token');
+    const isResetPasswordPage = window.location.pathname.includes('reset-password');
+
+    console.log('🔍 URL parameters detected:', {
+      pathname: window.location.pathname,
+      search: window.location.search,
+      verifyToken: !!verifyToken,
+      resetToken: !!resetToken,
+      isResetPasswordPage
+    });
 
     if (verifyToken) {
+      console.log('📧 Email verification token detected');
       handleEmailVerification(verifyToken);
-    } else if (resetToken) {
-      setPasswordResetForm(prev => ({ ...prev, token: resetToken }));
+    } else if (resetToken || isResetPasswordPage) {
+      console.log('🔒 Password reset token detected:', {
+        token: resetToken,
+        isResetPasswordPage,
+        willShowResetForm: true
+      });
+      setPasswordResetForm(prev => ({ ...prev, token: resetToken || '' }));
       setShowPasswordReset(true);
+    } else {
+      console.log('ℹ️ No special URL parameters detected, showing normal login');
     }
   }, []);
 
@@ -3014,6 +3032,143 @@ const TrailCommandInterface = () => {
     }
   };
 
+  // Password reset page (show regardless of login status)
+  if (showPasswordReset) {
+    const loginTheme = CookieHelper.get('trailcommand-theme') || userSettings.theme || 'light';
+
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 login-background ${
+        loginTheme === 'dark' ? 'dark' : ''
+      }`}>
+        <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-xl shadow-xl p-8 w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.74 5.74L14.5 17H9a2 2 0 01-2-2V9.5l.26-.26A6 6 0 0119 9z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
+            <p className="text-gray-600">Enter your new password below</p>
+          </div>
+
+          {passwordResetForm.token ? (
+            // Reset password form (when user has token)
+            <form onSubmit={handlePasswordReset} className="space-y-6">
+              {passwordResetError && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <div className="text-sm text-red-800">{passwordResetError}</div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordResetForm.password}
+                  onChange={(e) => setPasswordResetForm(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordResetForm.confirmPassword}
+                  onChange={(e) => setPasswordResetForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Reset Password
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordReset(false);
+                  setPasswordResetForm({ token: '', password: '', confirmPassword: '' });
+                  setPasswordResetError('');
+                  window.history.replaceState({}, document.title, window.location.pathname);
+                }}
+                className="w-full py-2 px-4 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Back to {token && user ? 'Dashboard' : 'Login'}
+              </button>
+            </form>
+          ) : (
+            // Request password reset form
+            <form onSubmit={handlePasswordResetRequest} className="space-y-6">
+              {passwordResetError && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <div className="text-sm text-red-800">{passwordResetError}</div>
+                </div>
+              )}
+
+              {passwordResetSuccess ? (
+                <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
+                  <div className="text-sm text-green-800 mb-2">
+                    Password reset email sent! Please check your inbox for further instructions.
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowPasswordReset(false);
+                      setPasswordResetSuccess(false);
+                      setPasswordResetEmail('');
+                    }}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Back to {token && user ? 'Dashboard' : 'Login'}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={passwordResetEmail}
+                      onChange={(e) => setPasswordResetEmail(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Send Reset Email
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordReset(false)}
+                    className="w-full py-2 px-4 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  >
+                    Back to {token && user ? 'Dashboard' : 'Login'}
+                  </button>
+                </>
+              )}
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Login form
   if (!token || !user) {
     // Get theme from localStorage or default to light for login screen
@@ -3117,140 +3272,6 @@ const TrailCommandInterface = () => {
       );
     }
 
-    // Password reset page
-    if (showPasswordReset) {
-      return (
-        <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 login-background ${
-          loginTheme === 'dark' ? 'dark' : ''
-        }`}>
-          <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-xl shadow-xl p-8 w-full max-w-md">
-            <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.74 5.74L14.5 17H9a2 2 0 01-2-2V9.5l.26-.26A6 6 0 0119 9z" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
-              <p className="text-gray-600">Enter your new password below</p>
-            </div>
-
-            {passwordResetForm.token ? (
-              // Reset password form (when user has token)
-              <form onSubmit={handlePasswordReset} className="space-y-6">
-                {passwordResetError && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <div className="text-sm text-red-800">{passwordResetError}</div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    New Password
-                  </label>
-                  <input
-                    type="password"
-                    value={passwordResetForm.password}
-                    onChange={(e) => setPasswordResetForm(prev => ({ ...prev, password: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm New Password
-                  </label>
-                  <input
-                    type="password"
-                    value={passwordResetForm.confirmPassword}
-                    onChange={(e) => setPasswordResetForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Reset Password
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPasswordReset(false);
-                    setPasswordResetForm({ token: '', password: '', confirmPassword: '' });
-                    setPasswordResetError('');
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                  }}
-                  className="w-full py-2 px-4 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                >
-                  Back to Login
-                </button>
-              </form>
-            ) : (
-              // Request password reset form
-              <form onSubmit={handlePasswordResetRequest} className="space-y-6">
-                {passwordResetError && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <div className="text-sm text-red-800">{passwordResetError}</div>
-                  </div>
-                )}
-
-                {passwordResetSuccess ? (
-                  <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
-                    <div className="text-sm text-green-800 mb-2">
-                      Password reset email sent! Please check your inbox for further instructions.
-                    </div>
-                    <button
-                      onClick={() => {
-                        setShowPasswordReset(false);
-                        setPasswordResetSuccess(false);
-                        setPasswordResetEmail('');
-                      }}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      Back to Login
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        value={passwordResetEmail}
-                        onChange={(e) => setPasswordResetEmail(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                      Send Reset Email
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowPasswordReset(false)}
-                      className="w-full py-2 px-4 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                    >
-                      Back to Login
-                    </button>
-                  </>
-                )}
-              </form>
-            )}
-          </div>
-        </div>
-      );
-    }
 
     return (
       <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 login-background ${
